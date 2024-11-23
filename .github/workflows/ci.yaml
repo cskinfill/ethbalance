@@ -31,7 +31,7 @@ jobs:
         flake8 . --config .flake8 --count --statistics
     - name: Test with pytest
       run: |
-        pytest
+        python -m pytest
   docker:
 
     runs-on: ubuntu-latest
