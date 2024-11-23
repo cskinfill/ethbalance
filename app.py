@@ -16,12 +16,15 @@ logger = logging.getLogger(__name__)
 API_KEY = os.environ.get('API_KEY', default="TESTME")
 HEADERS = {'Content-Type': 'application/json'}
 
+
 def to_eths(weis):
-   return weis * 1e-18
+    return weis * 1e-18
+
 
 @app.route("/")
 def hello_world():
     return jsonify([r.rule for r in app.url_map.iter_rules()])
+
 
 @app.route("/address/balance/<address>")
 def services(address, methods=["GET"]):
@@ -36,16 +39,17 @@ def services(address, methods=["GET"]):
     "id": request_id
   }
   logger.debug(f"request payload is {payload}")
-  r = requests.post(f"https://mainnet.infura.io/v3/{API_KEY}", headers = HEADERS, json = payload)
+  r = requests.post(f"https://mainnet.infura.io/v3/{API_KEY}", headers=HEADERS, json=payload)
   logger.debug("Got back status code %s and body %s", r.status_code, r.text)
   if r.status_code == 200:
     resp = r.json()
     if "error" in resp:
-       logger.warning(f"{resp["error"]}")
-       abort(404)
+      logger.warning(f"{resp["error"]}")
+      abort(404)
     return jsonify({"balance": to_eths(int(resp["result"], base=16))})
   else:
     abort(404, "Not Found")
+
 
 if __name__ == "__main__":
     app.run(debug=True)
