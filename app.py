@@ -22,6 +22,7 @@ def to_eths(weis):
 
 
 @app.route("/")
+@metrics.do_not_track()
 def hello_world():
     return jsonify([r.rule for r in app.url_map.iter_rules()])
 
