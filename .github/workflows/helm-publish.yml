@@ -38,7 +38,7 @@ jobs:
       - name: Helm release
         id: helm-release
         run: |
-          helm package ./helm --version ${{ github.ref_name }} -d tmp/package
+          helm package ./helm --version ${{ github.ref_name }} -d tmp/package --app-version ${{ github.ref_name }}
           echo "package=$(ls tmp/package/*.tgz)" >> $GITHUB_OUTPUT
 
       - name: Helm Publish
