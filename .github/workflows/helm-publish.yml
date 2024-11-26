@@ -3,6 +3,7 @@ name: Publish Helm Chart
 on:
   push:
     tags: [ 'v*.*.*' ]
+  workflow_dispatch:
 
 env:
   # Use docker.io for Docker Hub if empty
