@@ -43,7 +43,7 @@ jobs:
 
       - name: Helm Publish
         id: helm-publish
-        run: helm push ${{steps.helm-release.outputs.package}} oci://${{ env.REGISTRY }}/charts/${{ env.CHART_NAME }}
+        run: helm push ${{steps.helm-release.outputs.package}} oci://${{ env.REGISTRY }}/${{ env.CHART_NAME }}/chart
 
       - name: Attest
         uses: actions/attest-build-provenance@v1
