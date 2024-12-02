@@ -51,6 +51,7 @@ def services(address, methods=["GET"]):
   else:
     abort(404, "Not Found")
 
+
 @app.route("/address/transaction/<address>")
 def transaction(address, methods=["GET"]):
   request_id = uuid.uuid4().hex
