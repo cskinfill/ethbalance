@@ -3,13 +3,17 @@ name: Rust
 on:
   push:
     branches: [ "main" ]
-    paths: ["rust"]
+    paths: ["rust/**"]
   pull_request:
     branches: [ "main" ]
-    paths: ["rust"]
+    paths: ["rust/**"]
 
 env:
   CARGO_TERM_COLOR: always
+
+defaults:
+  run:
+    working-directory: ./rust
 
 jobs:
   build:
@@ -52,9 +56,15 @@ jobs:
           --all-features
           --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
         continue-on-error: true
+      
+      - name: working dir
+        run: pwd
+      
+      - name: check dir
+        run: ls -al
 
       - name: Upload analysis results to GitHub
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: rust-clippy-results.sarif
+          sarif_file: rust/rust-clippy-results.sarif
           wait-for-processing: true
