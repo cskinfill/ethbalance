@@ -1,23 +1,22 @@
-use std::{num, sync::Arc};
+use std::sync::Arc;
 
 use axum::{
     extract::{Path, State},
     http::StatusCode,
-    response::IntoResponse,
     routing::get,
     Json, Router,
 };
+use axum_prometheus::PrometheusMetricLayer;
 use clap::Parser;
 use metrics_process::Collector;
-use reqwest::{Client, Url};
+use reqwest::Client;
+use serde_json::json;
+use std::error::Error;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 use tracing::*;
 use tracing_subscriber::fmt::format::FmtSpan;
-use serde_json::{json, Value};
-use axum_prometheus::PrometheusMetricLayer;
 use tracing_subscriber::EnvFilter;
-use std::error::Error;
 
 #[derive(Parser, Debug)] // requires `derive` feature
 #[command()] // Just to make testing across clap features easier
@@ -31,7 +30,7 @@ struct Args {
 #[derive(Clone)]
 struct AppState {
     url: String,
-    client: Client
+    client: Client,
 }
 
 #[tokio::main]
@@ -44,9 +43,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let args = Args::parse();
 
-    let state = AppState { 
-        url: format!("https://mainnet.infura.io/v3/{api_key}", api_key = args.api_key), 
-        client: reqwest::Client::new()
+    let state = AppState {
+        url: format!(
+            "https://mainnet.infura.io/v3/{api_key}",
+            api_key = args.api_key
+        ),
+        client: reqwest::Client::new(),
     };
 
     let (prometheus_layer, metric_handle) = PrometheusMetricLayer::pair();
@@ -65,11 +67,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
         )
         .route_layer(
             ServiceBuilder::new()
-            .layer(TraceLayer::new_for_http())
-            .layer(prometheus_layer))
+                .layer(TraceLayer::new_for_http())
+                .layer(prometheus_layer),
+        )
         .with_state(Arc::new(state));
-    
-    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", args.port.unwrap_or(3000))).await?;
+
+    let listener =
+        tokio::net::TcpListener::bind(format!("0.0.0.0:{}", args.port.unwrap_or(3000))).await?;
     info!("App running on port {}", args.port.unwrap_or(3000));
     axum::serve(listener, app).await?;
     Ok(())
@@ -88,22 +92,25 @@ async fn transaction(
     State(app): State<Arc<AppState>>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     retrieve_trx(address, app)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
-    .map(|a| Json(a))
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
+        .map(Json)
 }
 
 #[instrument(skip(app))]
-async fn retrieve_trx(address: String, app: Arc<AppState>) -> Result<serde_json::Value, reqwest::Error> {
+async fn retrieve_trx(
+    address: String,
+    app: Arc<AppState>,
+) -> Result<serde_json::Value, reqwest::Error> {
     let body = json!({
-        "jsonrpc": "2.0",
-        "method": "eth_getTransactionByHash",
-        "params": [
-            address
-        ],
-        "id": 1
-        });
-    
+    "jsonrpc": "2.0",
+    "method": "eth_getTransactionByHash",
+    "params": [
+        address
+    ],
+    "id": 1
+    });
+
     app.client
         .post(app.url.clone())
         .json(&body)
@@ -116,7 +123,7 @@ async fn retrieve_trx(address: String, app: Arc<AppState>) -> Result<serde_json:
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 struct BalanceResponse {
-    balance: f64
+    balance: f64,
 }
 
 #[axum::debug_handler]
@@ -125,39 +132,39 @@ async fn balance(
     Path(address): Path<String>,
     State(app): State<Arc<AppState>>,
 ) -> Result<Json<BalanceResponse>, StatusCode> {
-
     retrieve_balance(address, app)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
-    .map(|b| b.result)
-    .inspect(|b| debug!("pre-parsed balance is {b}"))
-    .map(|b| b.trim_start_matches("0x").to_string())
-    .and_then(|b| u64::from_str_radix(&b, 16).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR))
-    .inspect(|b| debug!("parsed balance is {b}"))
-    .map(|b| (b as f64) * 1e-18)
-    .map(|b| BalanceResponse{balance: b})
-    .map(|b| Json(b))
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
+        .map(|b| b.result)
+        .inspect(|b| debug!("pre-parsed balance is {b}"))
+        .map(|b| b.trim_start_matches("0x").to_string())
+        .and_then(|b| u64::from_str_radix(&b, 16).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR))
+        .inspect(|b| debug!("parsed balance is {b}"))
+        .map(|b| (b as f64) * 1e-18)
+        .map(|b| BalanceResponse { balance: b })
+        .map(Json)
 }
 
 #[derive(serde::Deserialize, Debug)]
 struct Balance {
     // id: serde_json::Number,
-    // jsonrpc: String, 
-    result: String
+    // jsonrpc: String,
+    result: String,
 }
 
 #[instrument(skip(app))]
 async fn retrieve_balance(address: String, app: Arc<AppState>) -> Result<Balance, reqwest::Error> {
     let body = json!({
-        "jsonrpc": "2.0",
-        "method": "eth_getBalance",
-        "params": [
-            address,
-            "latest"
-        ],
-        "id": 1
-        });
-    let resp = app.client
+    "jsonrpc": "2.0",
+    "method": "eth_getBalance",
+    "params": [
+        address,
+        "latest"
+    ],
+    "id": 1
+    });
+    let resp = app
+        .client
         .post(app.url.clone())
         .json(&body)
         .send()
